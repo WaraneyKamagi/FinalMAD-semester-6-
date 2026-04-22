@@ -2,7 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { router } from "expo-router";
 import React, { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator } from "react-native";
+import Animated, { FadeInDown, SlideInRight, Layout, FadeIn } from "react-native-reanimated";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../../convex/_generated/api";
 import { CURRENT_USER_ID } from "../index";
@@ -144,40 +145,48 @@ export default function GroceryScreen() {
             {recipes.recipes.map((recipe: any, idx: number) => {
               const isOpen = openRecipeIndex === idx;
               return (
-                <Pressable
+                <Animated.View
                   key={`${recipe.title}-${idx}`}
-                  style={styles.recipeCard}
-                  onPress={() => setOpenRecipeIndex(isOpen ? null : idx)}
+                  entering={FadeInDown.delay(idx * 100).springify().damping(14)}
+                  layout={Layout.springify()}
                 >
-                  <View style={styles.recipeCardHead}>
-                    <Text style={styles.recipeCardTitle}>{recipe.title}</Text>
-                    <Ionicons
-                      name={isOpen ? "chevron-up" : "chevron-down"}
-                      size={16}
-                      color="#A55511"
-                    />
-                  </View>
-                  <Text style={styles.recipeMeta}>
-                    {recipe.prepMins ?? "?"} mins • {recipe.calories ?? "?"}{" "}
-                    kcal
-                  </Text>
-                  {isOpen && (
-                    <View style={styles.recipeBody}>
-                      <Text style={styles.recipeSection}>Ingredients</Text>
-                      {recipe.ingredients?.map((item: string, i: number) => (
-                        <Text key={`${item}-${i}`} style={styles.recipeLine}>
-                          • {item}
-                        </Text>
-                      ))}
-                      <Text style={styles.recipeSection}>Steps</Text>
-                      {recipe.steps?.map((step: string, i: number) => (
-                        <Text key={`${step}-${i}`} style={styles.recipeLine}>
-                          {i + 1}. {step}
-                        </Text>
-                      ))}
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.recipeCard,
+                      pressed && { transform: [{ scale: 0.98 }] },
+                    ]}
+                    onPress={() => setOpenRecipeIndex(isOpen ? null : idx)}
+                  >
+                    <View style={styles.recipeCardHead}>
+                      <Text style={styles.recipeCardTitle}>{recipe.title}</Text>
+                      <Ionicons
+                        name={isOpen ? "chevron-up" : "chevron-down"}
+                        size={16}
+                        color="#A55511"
+                      />
                     </View>
-                  )}
-                </Pressable>
+                    <Text style={styles.recipeMeta}>
+                      {recipe.prepMins ?? "?"} mins • {recipe.calories ?? "?"}{" "}
+                      kcal
+                    </Text>
+                    {isOpen && (
+                      <Animated.View entering={FadeIn} style={styles.recipeBody}>
+                        <Text style={styles.recipeSection}>Ingredients</Text>
+                        {recipe.ingredients?.map((item: string, i: number) => (
+                          <Text key={`${item}-${i}`} style={styles.recipeLine}>
+                            • {item}
+                          </Text>
+                        ))}
+                        <Text style={styles.recipeSection}>Steps</Text>
+                        {recipe.steps?.map((step: string, i: number) => (
+                          <Text key={`${step}-${i}`} style={styles.recipeLine}>
+                            {i + 1}. {step}
+                          </Text>
+                        ))}
+                      </Animated.View>
+                    )}
+                  </Pressable>
+                </Animated.View>
               );
             })}
           </View>
@@ -186,40 +195,49 @@ export default function GroceryScreen() {
         <View style={styles.list}>
           <Text style={styles.listTitle}>3) Shopping Checklist</Text>
           {groceryList.items.map((item: any, idx: number) => (
-            <Pressable
+            <Animated.View
               key={`${item.name}-${idx}`}
-              onPress={() => handleToggle(groceryList._id, idx, item.purchased)}
-              style={[styles.itemCard, item.purchased && styles.itemCardDone]}
+              entering={SlideInRight.delay(idx * 80).springify().damping(16)}
+              layout={Layout.springify().damping(20)}
             >
-              <View style={styles.itemLeft}>
-                <View
-                  style={[
-                    styles.itemIcon,
-                    item.purchased && styles.itemIconDone,
-                  ]}
-                >
-                  <Ionicons
-                    name={item.purchased ? "checkmark" : "nutrition-outline"}
-                    size={16}
-                    color={item.purchased ? "#052E24" : "#34D399"}
-                  />
-                </View>
-                <View>
-                  <Text
+              <Pressable
+                onPress={() => handleToggle(groceryList._id, idx, item.purchased)}
+                style={({ pressed }) => [
+                  styles.itemCard,
+                  item.purchased && styles.itemCardDone,
+                  pressed && { transform: [{ scale: 0.98 }] }
+                ]}
+              >
+                <View style={styles.itemLeft}>
+                  <View
                     style={[
-                      styles.itemTitle,
-                      item.purchased && styles.itemTitleDone,
+                      styles.itemIcon,
+                      item.purchased && styles.itemIconDone,
                     ]}
                   >
-                    {item.name}
-                  </Text>
-                  <Text style={styles.itemMeta}>
-                    {item.amount} • {item.category}
-                  </Text>
+                    <Ionicons
+                      name={item.purchased ? "checkmark" : "nutrition-outline"}
+                      size={16}
+                      color={item.purchased ? "#052E24" : "#34D399"}
+                    />
+                  </View>
+                  <View>
+                    <Text
+                      style={[
+                        styles.itemTitle,
+                        item.purchased && styles.itemTitleDone,
+                      ]}
+                    >
+                      {item.name}
+                    </Text>
+                    <Text style={styles.itemMeta}>
+                      {item.amount} • {item.category}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#6B7280" />
-            </Pressable>
+                <Ionicons name="chevron-forward" size={16} color="#6B7280" />
+              </Pressable>
+            </Animated.View>
           ))}
         </View>
       </ScrollView>

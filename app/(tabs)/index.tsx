@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
+import Animated, { FadeInDown, FadeIn, Layout, BounceIn, SlideInRight } from "react-native-reanimated";
 import {
     ActivityIndicator,
     KeyboardAvoidingView,
@@ -372,76 +373,84 @@ export default function DashboardScreen() {
               </View>
             ) : (
               <View style={styles.taskList}>
-                {tasks.map((task: any) => (
-                  <Pressable
+                {tasks.map((task: any, index: number) => (
+                  <Animated.View
                     key={task._id}
-                    onPress={() =>
-                      toggleTask({
-                        taskId: task._id,
-                        completed: !task.completed,
-                      })
-                    }
-                    style={[
-                      styles.taskCard,
-                      task.completed && styles.taskCardDone,
-                    ]}
+                    entering={FadeInDown.delay(index * 100).springify().damping(14)}
+                    layout={Layout.springify().damping(16)}
                   >
-                    <View
-                      style={[
-                        styles.taskIconWrap,
-                        task.type === "workout"
-                          ? styles.workoutBg
-                          : styles.mealBg,
-                      ]}
-                    >
-                      <Ionicons
-                        name={
-                          task.type === "workout" ? "barbell" : "restaurant"
-                        }
-                        size={18}
-                        color={task.type === "workout" ? "#FB923C" : "#34D399"}
-                      />
-                    </View>
-                    <View style={styles.taskMain}>
-                      <Text
-                        style={[
-                          styles.taskTitle,
-                          task.completed && styles.taskTextDone,
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {task.title}
-                      </Text>
-                      <Text style={styles.taskSub} numberOfLines={1}>
-                        {task.time} • {task.description}
-                      </Text>
-                    </View>
                     <Pressable
-                      onPress={() => handleSwapTask(task._id)}
-                      style={styles.swapBtn}
-                      disabled={swappingTaskId === task._id}
-                    >
-                      {swappingTaskId === task._id ? (
-                        <ActivityIndicator size="small" color="#B35F14" />
-                      ) : (
-                        <Ionicons
-                          name="shuffle-outline"
-                          size={14}
-                          color="#B35F14"
-                        />
-                      )}
-                    </Pressable>
-                    <View
-                      style={[
-                        styles.checkCircle,
-                        task.completed && styles.checkCircleDone,
+                      onPress={() =>
+                        toggleTask({
+                          taskId: task._id,
+                          completed: !task.completed,
+                        })
+                      }
+                      style={({ pressed }) => [
+                        styles.taskCard,
+                        task.completed && styles.taskCardDone,
+                        pressed && { transform: [{ scale: 0.98 }] },
                       ]}
                     >
-                      {task.completed ? (
-                        <Ionicons name="checkmark" size={14} color="#06231A" />
-                      ) : null}
-                    </View>
-                  </Pressable>
+                      <View
+                        style={[
+                          styles.taskIconWrap,
+                          task.type === "workout"
+                            ? styles.workoutBg
+                            : styles.mealBg,
+                        ]}
+                      >
+                        <Ionicons
+                          name={
+                            task.type === "workout" ? "barbell" : "restaurant"
+                          }
+                          size={18}
+                          color={task.type === "workout" ? "#FB923C" : "#34D399"}
+                        />
+                      </View>
+                      <View style={styles.taskMain}>
+                        <Text
+                          style={[
+                            styles.taskTitle,
+                            task.completed && styles.taskTextDone,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {task.title}
+                        </Text>
+                        <Text style={styles.taskSub} numberOfLines={2}>
+                          {task.time} • {task.description}
+                        </Text>
+                      </View>
+                      <Pressable
+                        onPress={() => handleSwapTask(task._id)}
+                        style={styles.swapBtn}
+                        disabled={swappingTaskId === task._id}
+                      >
+                        {swappingTaskId === task._id ? (
+                          <ActivityIndicator size="small" color="#B35F14" />
+                        ) : (
+                          <Ionicons
+                            name="shuffle-outline"
+                            size={14}
+                            color="#B35F14"
+                          />
+                        )}
+                      </Pressable>
+                      <View
+                        style={[
+                          styles.checkCircle,
+                          task.completed && styles.checkCircleDone,
+                        ]}
+                      >
+                        {task.completed ? (
+                          <Animated.View entering={BounceIn}>
+                            <Ionicons name="checkmark" size={14} color="#06231A" />
+                          </Animated.View>
+                        ) : null}
+                      </View>
+                    </Pressable>
+                  </Animated.View>
                 ))}
               </View>
             )}
@@ -453,18 +462,23 @@ export default function DashboardScreen() {
               Important alerts for today. Tap any card to mark it as read.
             </Text>
             {notifications && notifications.length > 0 ? (
-              notifications.map((n: any) => (
-                <Pressable
+              notifications.map((n: any, index: number) => (
+                <Animated.View
                   key={n._id}
-                  onPress={() => markRead({ notificationId: n._id })}
-                  style={styles.notificationCard}
+                  entering={SlideInRight.delay(index * 100).springify().damping(14)}
+                  layout={Layout.springify()}
                 >
-                  <Ionicons name="notifications" size={20} color="#38BDF8" />
-                  <Text style={styles.notificationText}>{n.message}</Text>
-                </Pressable>
+                  <Pressable
+                    onPress={() => markRead({ notificationId: n._id })}
+                    style={({ pressed }) => [styles.notificationCard, pressed && { transform: [{ scale: 0.98 }] }]}
+                  >
+                    <Ionicons name="notifications" size={20} color="#38BDF8" />
+                    <Text style={styles.notificationText}>{n.message}</Text>
+                  </Pressable>
+                </Animated.View>
               ))
             ) : (
-              <View style={styles.emptyReminderCard}>
+              <Animated.View entering={FadeInDown} style={styles.emptyReminderCard}>
                 <Ionicons
                   name="notifications-outline"
                   size={20}
@@ -474,7 +488,7 @@ export default function DashboardScreen() {
                   No reminders yet. They will appear here when your schedule
                   includes alerts.
                 </Text>
-              </View>
+              </Animated.View>
             )}
           </View>
 
@@ -484,7 +498,11 @@ export default function DashboardScreen() {
               Use this after reviewing today&apos;s progress for better AI
               suggestions.
             </Text>
-            <View style={styles.promptCard}>
+            <Animated.View 
+              style={styles.promptCard} 
+              layout={Layout.springify()}
+              entering={FadeInDown.delay(200)}
+            >
               <TextInput
                 style={styles.promptInput}
                 placeholder="Example: Build a high-protein 7-day meal plan"
@@ -496,32 +514,36 @@ export default function DashboardScreen() {
               <Pressable
                 onPress={handlePrompt}
                 disabled={loading || !prompt.trim()}
-                style={[
+                style={({ pressed }) => [
                   styles.sendBtn,
                   (!prompt.trim() || loading) && styles.sendBtnDisabled,
+                  pressed && { transform: [{ scale: 0.92 }] },
                 ]}
               >
                 {loading ? (
                   <ActivityIndicator color="#ECFDF5" />
                 ) : (
-                  <Ionicons name="sparkles" size={19} color="#FFFDF9" />
+                  <Animated.View entering={BounceIn}>
+                    <Ionicons name="sparkles" size={19} color="#FFFDF9" />
+                  </Animated.View>
                 )}
               </Pressable>
-            </View>
+            </Animated.View>
 
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.quickRow}
             >
-              {quickPrompts.map((item) => (
-                <Pressable
-                  key={item}
-                  style={styles.quickChip}
-                  onPress={() => setPrompt(item)}
-                >
-                  <Text style={styles.quickChipText}>{item}</Text>
-                </Pressable>
+              {quickPrompts.map((item, index) => (
+                <Animated.View key={item} entering={SlideInRight.delay(index * 100)}>
+                  <Pressable
+                    style={({ pressed }) => [styles.quickChip, pressed && { opacity: 0.7 }]}
+                    onPress={() => setPrompt(item)}
+                  >
+                    <Text style={styles.quickChipText}>{item}</Text>
+                  </Pressable>
+                </Animated.View>
               ))}
             </ScrollView>
           </View>

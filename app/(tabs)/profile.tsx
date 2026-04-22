@@ -11,6 +11,7 @@ import {
     TextInput,
     View,
 } from "react-native";
+import Animated, { FadeInDown, SlideInRight, Layout, FadeIn } from "react-native-reanimated";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../../convex/_generated/api";
 import { CURRENT_USER_ID } from "../index";
@@ -128,7 +129,7 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.profileRow}>
+        <Animated.View style={styles.profileRow} entering={FadeInDown.delay(100)}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
               {user.name.charAt(0).toUpperCase()}
@@ -142,14 +143,14 @@ export default function ProfileScreen() {
               <Text style={styles.meta}>Age: {user.age} years</Text>
             )}
           </View>
-        </View>
+        </Animated.View>
 
         <Text style={styles.pageGuide}>
           Recommended flow: update weekly progress, tune reminders, then review
           badges and tips.
         </Text>
 
-        <View style={styles.card}>
+        <Animated.View style={styles.card} entering={FadeInDown.delay(200)}>
           <View style={styles.cardHead}>
             <Ionicons name="pulse" size={20} color="#34D399" />
             <Text style={styles.cardTitle}>1) Weekly Check-in</Text>
@@ -172,9 +173,10 @@ export default function ProfileScreen() {
           <Pressable
             onPress={handleEvaluation}
             disabled={loading || !newWeight}
-            style={[
+            style={({ pressed }) => [
               styles.actionBtn,
               (!newWeight || loading) && styles.actionBtnDisabled,
+              pressed && { transform: [{ scale: 0.95 }] },
             ]}
           >
             {loading ? (
@@ -183,9 +185,9 @@ export default function ProfileScreen() {
               <Text style={styles.actionBtnText}>Recalibrate Plan</Text>
             )}
           </Pressable>
-        </View>
+        </Animated.View>
 
-        <View style={styles.card}>
+        <Animated.View style={styles.card} entering={FadeInDown.delay(300)}>
           <View style={styles.cardHead}>
             <Ionicons name="notifications-outline" size={20} color="#E87D1A" />
             <Text style={styles.cardTitle}>2) Smart Reminder</Text>
@@ -202,13 +204,16 @@ export default function ProfileScreen() {
             value={reminderLead}
             onChangeText={setReminderLead}
           />
-          <Pressable onPress={handleReminderSave} style={styles.actionBtn}>
+          <Pressable 
+            onPress={handleReminderSave} 
+            style={({ pressed }) => [styles.actionBtn, pressed && { transform: [{ scale: 0.95 }] }]}
+          >
             <Text style={styles.actionBtnText}>Save Reminder</Text>
           </Pressable>
-        </View>
+        </Animated.View>
 
         {!!streak?.badges?.length && (
-          <View style={styles.badgesCard}>
+          <Animated.View style={styles.badgesCard} entering={FadeInDown.delay(400)}>
             <Text style={styles.badgesTitle}>3) Your Badges</Text>
             <View style={styles.badgesWrap}>
               {streak.badges.map((badge) => (
@@ -218,10 +223,10 @@ export default function ProfileScreen() {
                 </View>
               ))}
             </View>
-          </View>
+          </Animated.View>
         )}
 
-        <View style={styles.tipsCard}>
+        <Animated.View style={styles.tipsCard} entering={FadeInDown.delay(500)}>
           <Text style={styles.tipsTitle}>4) This Week&apos;s Tips</Text>
           <Text style={styles.tipText}>
             • Prioritize protein in every meal.
@@ -232,7 +237,7 @@ export default function ProfileScreen() {
           <Text style={styles.tipText}>
             • Keep sleep consistent to stabilize appetite.
           </Text>
-        </View>
+        </Animated.View>
       </ScrollView>
     </SafeAreaView>
   );

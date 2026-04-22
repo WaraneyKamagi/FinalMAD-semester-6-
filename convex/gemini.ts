@@ -157,49 +157,63 @@ async function requestGeminiJson(args: {
   temperature: number;
   responseSchema?: Record<string, unknown>;
 }): Promise<any> {
-  const models = ["gemini-1.5-flash", "gemini-2.0-flash"];
+  const models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
   const retryableStatus = new Set([429, 500, 502, 503, 504]);
   const maxAttemptsPerModel = 3;
 
-  let lastErrorText = "Unknown Gemini error";
+  let lastErrorText = "Unknown Groq API error";
+
+  // Inject schema directly into prompt for Groq JSON Mode
+  let finalPrompt = args.prompt;
+  if (args.responseSchema) {
+    finalPrompt += "\n\nCRUCIAL: You must return ONLY raw JSON matching this schema exactly:\n";
+    finalPrompt += JSON.stringify(args.responseSchema, null, 2);
+  }
 
   for (const model of models) {
     for (let attempt = 1; attempt <= maxAttemptsPerModel; attempt++) {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${args.apiKey}`;
+      const endpoint = `https://api.groq.com/openai/v1/chat/completions`;
 
       try {
         const res = await fetch(endpoint, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            "Authorization": `Bearer ${args.apiKey}`
           },
           body: JSON.stringify({
-            contents: [
-              {
-                role: "user",
-                parts: [{ text: args.prompt }],
-              },
+            model: model,
+            messages: [
+              { "role": "system", "content": "You are a highly capable AI assistant that MUST output strictly valid JSON format. Provide no markdown formatting, no comments, just raw parsable JSON." },
+              { "role": "user", "content": finalPrompt }
             ],
-            generationConfig: {
-              responseMimeType: "application/json",
-              ...(args.responseSchema
-                ? { responseSchema: args.responseSchema }
-                : {}),
-              temperature: args.temperature,
-              maxOutputTokens: args.maxOutputTokens,
-            },
+            temperature: args.temperature,
+            // Only max_tokens is supported commonly
+            max_completion_tokens: args.maxOutputTokens,
+            response_format: { type: "json_object" }
           }),
         });
 
         if (res.ok) {
-          return await res.json();
+          const groqData = await res.json();
+          // Map to Gemini response format to avoid changing other code
+          return {
+            candidates: [
+              {
+                finishReason: groqData.choices?.[0]?.finish_reason === "stop" ? "STOP" : groqData.choices?.[0]?.finish_reason,
+                content: {
+                  parts: [{ text: groqData.choices?.[0]?.message?.content || "" }]
+                }
+              }
+            ]
+          };
         }
 
         const errorText = await res.text();
         lastErrorText = errorText;
 
         if (!retryableStatus.has(res.status)) {
-          throw new Error(`Gemini API error (${res.status}): ${errorText}`);
+          throw new Error(`Groq API error (${res.status}): ${errorText}`);
         }
 
         if (attempt < maxAttemptsPerModel) {
@@ -219,7 +233,7 @@ async function requestGeminiJson(args: {
   }
 
   throw new Error(
-    `Gemini is temporarily unavailable due to high demand. Please retry in 30-60 seconds. Details: ${lastErrorText}`,
+    `Groq API is temporarily unavailable due to high demand. Please retry in 30-60 seconds. Details: ${lastErrorText}`,
   );
 }
 
@@ -243,8 +257,11 @@ Create a concise 7-day health plan based on the user's prompt and profile.
 Client profile: Name: ${user.name}, Weight: ${user.weight}kg, Height: ${user.height}cm.
 Prompt: "${args.prompt}"
 
-Return JSON only. Keep each description short, direct, and complete.
-Do not add markdown, code fences, commentary, or extra keys.`;
+INSTRUCTIONS: 
+- Provide highly specific, clear, and unambiguous action plans. Get straight to the point.
+- For Meals: State EXACTLY what to eat, exact ingredients, and precise portion sizes context. (e.g. "150g Dada Ayam Bakar, 2 lembar bayam rebus, 1 sdm minyak zaitun").
+- For Exercise: State EXACTLY the movements, sets, and reps. (e.g. "Pemanasan ringan 5 menit, 4 set x 15 Pushup, 20 Squat, dan lari 30 menit").
+- No commentary outside the JSON block. Return JSON ONLY. Do not use markdown blocks.`;
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) throw new Error("Missing GEMINI_API_KEY");
