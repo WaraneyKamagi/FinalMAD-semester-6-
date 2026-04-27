@@ -16,13 +16,15 @@ export const login = mutation({
       .first();
 
     if (existingUser) {
-      // Just update if they login again with new weight/height
+      // GAP 4 Fix: Only update physical profile data on re-login.
+      // DO NOT reset hasPromptedAI — this would hide the existing plan from the UI.
+      // Preserve all gamification state (streak, badges) and plan visibility.
       await ctx.db.patch(existingUser._id, {
         weight: args.weight,
         height: args.height,
         age: args.age,
         name: args.name,
-        hasPromptedAI: false,
+        // hasPromptedAI intentionally NOT reset — plan stays visible after re-login
         reminderLeadMins: existingUser.reminderLeadMins ?? 20,
         currentStreak: existingUser.currentStreak ?? 0,
         bestStreak: existingUser.bestStreak ?? 0,

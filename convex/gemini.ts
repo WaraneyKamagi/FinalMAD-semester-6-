@@ -54,12 +54,22 @@ function extractJsonPayload(raw: string): unknown {
 function isUnsafePrompt(prompt: string): boolean {
   const normalized = prompt.toLowerCase();
   const riskyPhrases = [
+    // Original phrases
     "extreme",
     "very low calorie",
     "starvation",
     "lose 5kg in a week",
     "lose 10kg in 2 weeks",
     "detox only",
+    // Extended high-risk phrases (GAP 2 fix — journal Sec 3.4)
+    "anorexia",
+    "purging",
+    "laxative",
+    "crash diet",
+    "500 calories",
+    "no carb",
+    "fasting only",
+    "skip meals",
   ];
   return riskyPhrases.some((phrase) => normalized.includes(phrase));
 }
@@ -254,11 +264,12 @@ export const generatePlan = action({
 
     const systemPrompt = `You are an elite personal nutritionist and physical trainer.
 Create a concise 7-day health plan based on the user's prompt and profile.
-Client profile: Name: ${user.name}, Weight: ${user.weight}kg, Height: ${user.height}cm.
+Client profile: Name: ${user.name}, Age: ${user.age ?? "N/A"} years old, Weight: ${user.weight}kg, Height: ${user.height}cm.
 Prompt: "${args.prompt}"
 
 INSTRUCTIONS: 
 - Provide highly specific, clear, and unambiguous action plans. Get straight to the point.
+- Tailor calorie targets and exercise intensity to the user's age, weight, and height.
 - For Meals: State EXACTLY what to eat, exact ingredients, and precise portion sizes context. (e.g. "150g Dada Ayam Bakar, 2 lembar bayam rebus, 1 sdm minyak zaitun").
 - For Exercise: State EXACTLY the movements, sets, and reps. (e.g. "Pemanasan ringan 5 menit, 4 set x 15 Pushup, 20 Squat, dan lari 30 menit").
 - No commentary outside the JSON block. Return JSON ONLY. Do not use markdown blocks.`;

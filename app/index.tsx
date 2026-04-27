@@ -78,7 +78,7 @@ export default function LoginScreen() {
         >
           <View style={styles.hero}>
             <View style={styles.logoWrap}>
-              <Ionicons name="fitness" size={44} color="#10B981" />
+              <Ionicons name="fitness" size={44} color="#FF7E00" />
             </View>
             <Text style={styles.title}>NutriUP</Text>
             <Text style={styles.subtitle}>Level Up Your Health</Text>
@@ -91,7 +91,7 @@ export default function LoginScreen() {
             <TextInput
               style={styles.input}
               placeholder="Example: Alex"
-              placeholderTextColor="#6B7280"
+              placeholderTextColor="#9CA3AF"
               value={name}
               onChangeText={setName}
             />
@@ -100,7 +100,7 @@ export default function LoginScreen() {
             <TextInput
               style={styles.input}
               placeholder="Example: 25"
-              placeholderTextColor="#6B7280"
+              placeholderTextColor="#9CA3AF"
               keyboardType="numeric"
               value={age}
               onChangeText={setAge}
@@ -112,7 +112,7 @@ export default function LoginScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="70"
-                  placeholderTextColor="#6B7280"
+                  placeholderTextColor="#9CA3AF"
                   keyboardType="numeric"
                   value={weight}
                   onChangeText={setWeight}
@@ -123,7 +123,7 @@ export default function LoginScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="175"
-                  placeholderTextColor="#6B7280"
+                  placeholderTextColor="#9CA3AF"
                   keyboardType="numeric"
                   value={height}
                   onChangeText={setHeight}
@@ -137,7 +137,7 @@ export default function LoginScreen() {
               style={[styles.button, !canSubmit && styles.buttonDisabled]}
             >
               {loading ? (
-                <ActivityIndicator color="#F9FAFB" />
+                <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <Text style={styles.buttonText}>Generate My Weekly Plan</Text>
               )}
@@ -152,115 +152,127 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#F7F3EE",
+    backgroundColor: "#FAF9F6",
   },
   flex: {
     flex: 1,
   },
   content: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 32,
-    gap: 24,
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    paddingBottom: 40,
+    gap: 32,
   },
   hero: {
     alignItems: "center",
-    marginTop: 12,
-    gap: 10,
+    marginTop: 16,
+    gap: 12,
   },
   logoWrap: {
-    height: 88,
-    width: 88,
-    borderRadius: 44,
-    backgroundColor: "#FFF1E4",
-    borderWidth: 1,
-    borderColor: "#F3D6B8",
+    height: 96,
+    width: 96,
+    borderRadius: 48,
+    backgroundColor: "#FFF3E8",
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: "#FF7E00",
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
   },
   title: {
-    color: "#2D2620",
-    fontSize: 34,
+    color: "#1F2937",
+    fontSize: 36,
     fontWeight: "800",
-    letterSpacing: 0.2,
+    letterSpacing: 0.5,
   },
   subtitle: {
-    color: "#8D7967",
+    color: "#6B7280",
     textAlign: "center",
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 16,
+    lineHeight: 24,
     maxWidth: 320,
   },
   card: {
-    backgroundColor: "#FFFDFC",
+    backgroundColor: "#FFFFFF",
     borderRadius: 24,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: "#EEDFD0",
-    gap: 10,
+    padding: 24,
+    gap: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
   },
   cardTitle: {
-    color: "#2D2620",
-    fontSize: 20,
-    fontWeight: "700",
-    marginBottom: 4,
+    color: "#1F2937",
+    fontSize: 22,
+    fontWeight: "800",
+    marginBottom: 8,
   },
   label: {
-    color: "#7A6A5B",
-    fontSize: 13,
-    marginTop: 4,
+    color: "#4B5563",
+    fontSize: 14,
+    fontWeight: "600",
+    marginTop: 6,
   },
   input: {
-    backgroundColor: "#FFF7EF",
-    borderWidth: 1,
-    borderColor: "#E8D8C7",
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: "#2D2620",
+    backgroundColor: "#F3F4F6",
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    color: "#1F2937",
     fontSize: 16,
   },
   row: {
     flexDirection: "row",
-    gap: 10,
+    gap: 12,
   },
   col: {
     flex: 1,
-    gap: 4,
+    gap: 6,
   },
   button: {
-    backgroundColor: "#E87D1A",
-    borderRadius: 14,
-    paddingVertical: 14,
+    backgroundColor: "#FF7E00",
+    borderRadius: 16,
+    paddingVertical: 18,
     alignItems: "center",
-    marginTop: 10,
+    marginTop: 16,
+    shadowColor: "#FF7E00",
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
   },
   buttonDisabled: {
-    opacity: 0.45,
+    opacity: 0.5,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   buttonText: {
-    color: "#FFFDF9",
-    fontSize: 16,
-    fontWeight: "700",
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontWeight: "800",
   },
   bgOrbA: {
     position: "absolute",
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: "#FFE6CF",
-    top: -110,
-    right: -60,
-    opacity: 0.8,
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    backgroundColor: "#FFEDD5",
+    top: -100,
+    right: -80,
+    opacity: 0.6,
   },
   bgOrbB: {
     position: "absolute",
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: "#FFD6AE",
-    bottom: -60,
-    left: -50,
-    opacity: 0.7,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: "#FFE4E6",
+    bottom: -80,
+    left: -70,
+    opacity: 0.5,
   },
 });

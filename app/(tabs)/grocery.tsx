@@ -1,12 +1,22 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator } from "react-native";
 import Animated, { FadeInDown, SlideInRight, Layout, FadeIn } from "react-native-reanimated";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../../convex/_generated/api";
 import { CURRENT_USER_ID } from "../index";
+
+// GAP 3: Category config — mirrors physical supermarket section layout (Journal Sec 3.6)
+const CATEGORY_ORDER = ["Protein", "Vegetables", "Grains", "Dairy", "Other"];
+const CATEGORY_CONFIG: Record<string, { icon: string; color: string; bg: string }> = {
+  Protein:    { icon: "fish-outline",       color: "#DC2626", bg: "#FEE2E2" },
+  Vegetables: { icon: "leaf-outline",       color: "#16A34A", bg: "#DCFCE7" },
+  Grains:     { icon: "cafe-outline",       color: "#B45309", bg: "#FEF3C7" },
+  Dairy:      { icon: "water-outline",      color: "#2563EB", bg: "#DBEAFE" },
+  Other:      { icon: "grid-outline",       color: "#7C3AED", bg: "#EDE9FE" },
+};
 
 export default function GroceryScreen() {
   const insets = useSafeAreaInsets();
@@ -23,6 +33,20 @@ export default function GroceryScreen() {
   const generateRecipes = useAction(api.gemini.generateWeeklyRecipes);
   const [loadingRecipes, setLoadingRecipes] = useState(false);
   const [openRecipeIndex, setOpenRecipeIndex] = useState<number | null>(null);
+
+  // GAP 3: useMemo MUST be at top level before any early returns (Rules of Hooks)
+  const groupedItems = useMemo(() => {
+    const items: any[] = groceryList?.items ?? [];
+    const map: Record<string, { item: any; originalIndex: number }[]> = {};
+    items.forEach((item: any, idx: number) => {
+      const cat = CATEGORY_ORDER.includes(item.category) ? item.category : "Other";
+      if (!map[cat]) map[cat] = [];
+      map[cat].push({ item, originalIndex: idx });
+    });
+    return CATEGORY_ORDER
+      .filter((cat) => map[cat]?.length > 0)
+      .map((cat) => ({ category: cat, entries: map[cat] }));
+  }, [groceryList?.items]);
 
   const handleToggle = (listId: any, idx: number, current: boolean) => {
     toggleItem({ listId, itemIndex: idx, purchased: !current });
@@ -87,6 +111,7 @@ export default function GroceryScreen() {
     (purchasedCount / groceryList.items.length) * 100,
   );
 
+
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.bgBlobOne} />
@@ -102,7 +127,7 @@ export default function GroceryScreen() {
       >
         <View style={styles.headerCard}>
           <View style={styles.headerTopRow}>
-            <View>
+            <View style={styles.headerTitleWrap}>
               <Text style={styles.title}>Smart Grocery</Text>
               <Text style={styles.subtitle}>
                 A cleaner shopping flow for the week
@@ -192,53 +217,85 @@ export default function GroceryScreen() {
           </View>
         )}
 
+        {/* GAP 3: Grouped Shopping Checklist by supermarket category (Journal Sec 3.6) */}
         <View style={styles.list}>
           <Text style={styles.listTitle}>3) Shopping Checklist</Text>
-          {groceryList.items.map((item: any, idx: number) => (
-            <Animated.View
-              key={`${item.name}-${idx}`}
-              entering={SlideInRight.delay(idx * 80).springify().damping(16)}
-              layout={Layout.springify().damping(20)}
-            >
-              <Pressable
-                onPress={() => handleToggle(groceryList._id, idx, item.purchased)}
-                style={({ pressed }) => [
-                  styles.itemCard,
-                  item.purchased && styles.itemCardDone,
-                  pressed && { transform: [{ scale: 0.98 }] }
-                ]}
+          {groupedItems.map(({ category, entries }, groupIdx) => {
+            const cfg = CATEGORY_CONFIG[category] ?? CATEGORY_CONFIG["Other"];
+            const categoryDoneCount = entries.filter(e => e.item.purchased).length;
+            return (
+              <Animated.View
+                key={category}
+                entering={FadeInDown.delay(groupIdx * 120).springify().damping(14)}
               >
-                <View style={styles.itemLeft}>
-                  <View
-                    style={[
-                      styles.itemIcon,
-                      item.purchased && styles.itemIconDone,
-                    ]}
-                  >
-                    <Ionicons
-                      name={item.purchased ? "checkmark" : "nutrition-outline"}
-                      size={16}
-                      color={item.purchased ? "#052E24" : "#34D399"}
-                    />
+                {/* Section Header */}
+                <View style={styles.categoryHeader}>
+                  <View style={[styles.categoryIconWrap, { backgroundColor: cfg.bg }]}>
+                    <Ionicons name={cfg.icon as any} size={16} color={cfg.color} />
                   </View>
-                  <View>
-                    <Text
-                      style={[
-                        styles.itemTitle,
-                        item.purchased && styles.itemTitleDone,
-                      ]}
-                    >
-                      {item.name}
-                    </Text>
-                    <Text style={styles.itemMeta}>
-                      {item.amount} • {item.category}
-                    </Text>
-                  </View>
+                  <Text style={[styles.categoryLabel, { color: cfg.color }]}>
+                    {category}
+                  </Text>
+                  <Text style={styles.categoryCount}>
+                    {categoryDoneCount}/{entries.length}
+                  </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color="#6B7280" />
-              </Pressable>
-            </Animated.View>
-          ))}
+
+                {/* Items in this category */}
+                <View style={styles.categoryItems}>
+                  {entries.map(({ item, originalIndex }, itemIdx) => (
+                    <Animated.View
+                      key={`${item.name}-${originalIndex}`}
+                      entering={SlideInRight.delay((groupIdx * 60) + (itemIdx * 60)).springify().damping(16)}
+                      layout={Layout.springify().damping(20)}
+                    >
+                      <Pressable
+                        onPress={() => handleToggle(groceryList._id, originalIndex, item.purchased)}
+                        style={({ pressed }) => [
+                          styles.itemCard,
+                          item.purchased && styles.itemCardDone,
+                          pressed && { transform: [{ scale: 0.98 }] }
+                        ]}
+                      >
+                        <View style={styles.itemLeft}>
+                          <View
+                            style={[
+                              styles.itemIcon,
+                              item.purchased
+                                ? styles.itemIconDone
+                                : { backgroundColor: cfg.bg },
+                            ]}
+                          >
+                            <Ionicons
+                              name={item.purchased ? "checkmark" : cfg.icon as any}
+                              size={16}
+                              color={item.purchased ? "#052E24" : cfg.color}
+                            />
+                          </View>
+                          <View style={styles.itemTextWrap}>
+                            <Text
+                              style={[
+                                styles.itemTitle,
+                                item.purchased && styles.itemTitleDone,
+                              ]}
+                            >
+                              {item.name}
+                            </Text>
+                            <Text style={styles.itemMeta}>{item.amount}</Text>
+                          </View>
+                        </View>
+                        <View style={[styles.itemCheckBox, item.purchased && styles.itemCheckBoxDone]}>
+                          {item.purchased && (
+                            <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+                          )}
+                        </View>
+                      </Pressable>
+                    </Animated.View>
+                  ))}
+                </View>
+              </Animated.View>
+            );
+          })}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -248,42 +305,46 @@ export default function GroceryScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#FAF6F0",
+    backgroundColor: "#FAF9F6",
   },
   container: {
-    paddingHorizontal: 18,
-    paddingTop: 18,
+    paddingHorizontal: 20,
+    paddingTop: 24,
   },
   scroll: {
     flex: 1,
   },
   bgBlobOne: {
     position: "absolute",
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: "#FFE7CC",
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    backgroundColor: "#FFEBE0",
     top: -100,
-    right: -70,
+    right: -80,
     opacity: 0.6,
   },
   bgBlobTwo: {
     position: "absolute",
-    width: 190,
-    height: 190,
-    borderRadius: 95,
-    backgroundColor: "#DDF5E8",
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: "#E0F2E9",
     bottom: 120,
     left: -80,
-    opacity: 0.45,
+    opacity: 0.4,
   },
   headerCard: {
-    backgroundColor: "rgba(255,255,255,0.78)",
-    borderWidth: 1,
-    borderColor: "#EADBCB",
-    borderRadius: 22,
-    padding: 16,
-    marginBottom: 14,
+    backgroundColor: "rgba(255,255,255,0.85)",
+    borderWidth: 0,
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
   },
   headerTopRow: {
     flexDirection: "row",
@@ -291,222 +352,286 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12,
   },
+  headerTitleWrap: {
+    flex: 1,
+    flexShrink: 1,
+  },
   center: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 24,
-    gap: 10,
+    gap: 12,
   },
   centerTitle: {
-    color: "#2D2620",
-    fontWeight: "700",
-    fontSize: 20,
+    color: "#1F2937",
+    fontWeight: "900",
+    fontSize: 22,
     textAlign: "center",
   },
   mutedCenter: {
-    color: "#8A7968",
+    color: "#6B7280",
     textAlign: "center",
-    lineHeight: 20,
+    lineHeight: 22,
+    fontSize: 15,
   },
   muted: {
-    color: "#8A7968",
+    color: "#6B7280",
   },
   goBtn: {
-    marginTop: 8,
-    backgroundColor: "#E87D1A",
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    marginTop: 12,
+    backgroundColor: "#FF7E00",
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    shadowColor: "#FF7E00",
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
   },
   goBtnText: {
-    color: "#FFFDF9",
-    fontWeight: "700",
+    color: "#FFFFFF",
+    fontWeight: "800",
+    fontSize: 15,
   },
   title: {
-    color: "#201A16",
-    fontSize: 30,
+    color: "#1F2937",
+    fontSize: 32,
     fontWeight: "900",
-    letterSpacing: -0.4,
+    letterSpacing: -0.5,
   },
   subtitle: {
-    color: "#7D6A59",
+    color: "#4B5563",
     marginTop: 4,
     marginBottom: 0,
-    fontSize: 13,
+    fontSize: 14,
   },
   guideText: {
-    color: "#6F6258",
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 10,
+    color: "#374151",
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: 12,
   },
   headerBadge: {
-    minWidth: 54,
-    height: 54,
-    borderRadius: 18,
-    backgroundColor: "#FFF0E1",
-    borderWidth: 1,
-    borderColor: "#EECDA8",
+    minWidth: 60,
+    height: 60,
+    borderRadius: 20,
+    backgroundColor: "#FFF3EB",
     alignItems: "center",
     justifyContent: "center",
   },
   headerBadgeText: {
-    color: "#A55511",
+    color: "#FF7E00",
     fontWeight: "900",
-    fontSize: 18,
+    fontSize: 20,
   },
   summaryCard: {
     backgroundColor: "#FFFFFF",
-    borderColor: "#EADBCB",
-    borderWidth: 1,
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    borderRadius: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 14,
+    marginBottom: 16,
     shadowColor: "#000",
-    shadowOpacity: 0.03,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
   },
   summaryText: {
-    color: "#8D4B0F",
-    fontWeight: "800",
+    color: "#1F2937",
+    fontWeight: "900",
+    fontSize: 15,
   },
   summaryPct: {
-    color: "#B35F14",
-    fontSize: 20,
+    color: "#FF7E00",
+    fontSize: 22,
     fontWeight: "900",
   },
   recipeHeader: {
-    marginBottom: 12,
+    marginBottom: 16,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
   recipeTitle: {
-    color: "#201A16",
-    fontSize: 16,
+    color: "#1F2937",
+    fontSize: 18,
     fontWeight: "900",
   },
   recipeBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "#F28C22",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    backgroundColor: "#FF7E00",
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    shadowColor: "#FF7E00",
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
   },
   recipeBtnText: {
-    color: "#FFFDF9",
+    color: "#FFFFFF",
     fontWeight: "800",
-    fontSize: 12,
+    fontSize: 13,
   },
   recipeList: {
-    gap: 8,
-    marginBottom: 12,
+    gap: 12,
+    marginBottom: 16,
   },
   recipeCard: {
-    backgroundColor: "#FFFDF9",
-    borderColor: "#EADBCB",
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 12,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 16,
     shadowColor: "#000",
-    shadowOpacity: 0.03,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.04,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
   },
   recipeCardHead: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: 8,
+    gap: 10,
   },
   recipeCardTitle: {
-    color: "#2D2620",
-    fontWeight: "700",
+    color: "#1F2937",
+    fontWeight: "800",
+    fontSize: 16,
     flex: 1,
   },
   recipeMeta: {
-    color: "#8A7968",
-    marginTop: 2,
-    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 4,
+    fontSize: 13,
   },
   recipeBody: {
-    marginTop: 8,
-    gap: 4,
+    marginTop: 10,
+    gap: 6,
   },
   recipeSection: {
-    color: "#A55511",
-    fontWeight: "700",
-    marginTop: 4,
-    fontSize: 12,
+    color: "#FF7E00",
+    fontWeight: "800",
+    marginTop: 6,
+    fontSize: 13,
   },
   recipeLine: {
-    color: "#5A4D42",
-    fontSize: 12,
-    lineHeight: 18,
+    color: "#4B5563",
+    fontSize: 13,
+    lineHeight: 20,
   },
   list: {
-    gap: 10,
-    paddingBottom: 20,
+    gap: 16,
+    paddingBottom: 24,
   },
   listTitle: {
-    color: "#201A16",
-    fontSize: 16,
+    color: "#1F2937",
+    fontSize: 18,
     fontWeight: "900",
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  // GAP 3: Category grouping styles
+  categoryHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 10,
     marginTop: 4,
-    marginBottom: 2,
+  },
+  categoryIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  categoryLabel: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "900",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  categoryCount: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#9CA3AF",
+  },
+  categoryItems: {
+    gap: 10,
+    marginBottom: 8,
   },
   itemCard: {
     backgroundColor: "#FFFFFF",
-    borderColor: "#EADBCB",
-    borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 14,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     shadowColor: "#000",
-    shadowOpacity: 0.03,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
   },
   itemCardDone: {
     opacity: 0.6,
+    backgroundColor: "#F9FAFB",
+    shadowOpacity: 0,
+    elevation: 0,
   },
   itemLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 12,
+    flex: 1,
+  },
+  itemTextWrap: {
+    flex: 1,
+    flexShrink: 1,
   },
   itemIcon: {
-    width: 34,
-    height: 34,
+    width: 38,
+    height: 38,
     borderRadius: 12,
-    backgroundColor: "#EAF7EF",
+    backgroundColor: "#D1FAE5",
     alignItems: "center",
     justifyContent: "center",
   },
   itemIconDone: {
-    backgroundColor: "#F3C37C",
+    backgroundColor: "#10B981",
   },
   itemTitle: {
-    color: "#201A16",
-    fontWeight: "800",
+    color: "#1F2937",
+    fontWeight: "700",
     fontSize: 15,
   },
   itemTitleDone: {
     textDecorationLine: "line-through",
+    color: "#9CA3AF",
   },
   itemMeta: {
-    color: "#857162",
-    marginTop: 1,
+    color: "#9CA3AF",
+    marginTop: 2,
     fontSize: 12,
+  },
+  itemCheckBox: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: "#E5E7EB",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  itemCheckBoxDone: {
+    backgroundColor: "#10B981",
+    borderColor: "#10B981",
   },
 });
