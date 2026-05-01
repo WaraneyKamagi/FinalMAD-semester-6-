@@ -65,4 +65,13 @@ export default defineSchema({
       }),
     ),
   }).index("by_user_week", ["userId", "weekStart"]),
+
+  // Prompt history — logs every AI generation for reference & future use
+  promptHistory: defineTable({
+    userId: v.id("users"),
+    userPrompt: v.string(),         // Raw input text from the user
+    systemPrompt: v.string(),       // Full system prompt sent to AI
+    createdAt: v.number(),          // Unix timestamp (Date.now())
+    planVersion: v.optional(v.string()), // e.g. "v1.0" for future versioning
+  }).index("by_user", ["userId"]),
 });

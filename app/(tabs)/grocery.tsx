@@ -1,9 +1,22 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { router } from "expo-router";
-import React, { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator } from "react-native";
-import Animated, { FadeInDown, SlideInRight, Layout, FadeIn } from "react-native-reanimated";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  ActivityIndicator,
+} from "react-native";
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  SlideInRight,
+  Layout,
+} from "react-native-reanimated";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../../convex/_generated/api";
 import { CURRENT_USER_ID } from "../index";
@@ -34,6 +47,10 @@ export default function GroceryScreen() {
   const [loadingRecipes, setLoadingRecipes] = useState(false);
   const [openRecipeIndex, setOpenRecipeIndex] = useState<number | null>(null);
 
+  // All-done popup — fires once per session when every item is purchased
+  const [showAllDoneModal, setShowAllDoneModal] = useState(false);
+  const hasShownDoneModal = useRef(false);
+
   // GAP 3: useMemo MUST be at top level before any early returns (Rules of Hooks)
   const groupedItems = useMemo(() => {
     const items: any[] = groceryList?.items ?? [];
@@ -47,6 +64,20 @@ export default function GroceryScreen() {
       .filter((cat) => map[cat]?.length > 0)
       .map((cat) => ({ category: cat, entries: map[cat] }));
   }, [groceryList?.items]);
+
+  // Trigger the all-done modal once per session
+  const purchasedForEffect = groceryList?.items?.filter((i: any) => i.purchased).length ?? 0;
+  const totalForEffect = groceryList?.items?.length ?? 0;
+  useEffect(() => {
+    if (
+      totalForEffect > 0 &&
+      purchasedForEffect === totalForEffect &&
+      !hasShownDoneModal.current
+    ) {
+      hasShownDoneModal.current = true;
+      setShowAllDoneModal(true);
+    }
+  }, [purchasedForEffect, totalForEffect]);
 
   const handleToggle = (listId: any, idx: number, current: boolean) => {
     toggleItem({ listId, itemIndex: idx, purchased: !current });
@@ -298,6 +329,47 @@ export default function GroceryScreen() {
           })}
         </View>
       </ScrollView>
+
+      <Modal
+        visible={showAllDoneModal}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setShowAllDoneModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Animated.View entering={FadeInDown.springify().damping(14)} style={styles.modalCard}>
+            <View style={styles.modalBlobTL} />
+            <View style={styles.modalBlobBR} />
+
+            <View style={styles.modalIconWrap}>
+              <Text style={styles.modalEmoji}>🛒✅</Text>
+            </View>
+
+            <Text style={styles.modalTitle}>Semua Bahan Sudah Dibeli!</Text>
+            <Text style={styles.modalSubtitle}>
+              Luar biasa! Kamu sudah menyelesaikan seluruh{"\n"}daftar belanja minggu ini.
+            </Text>
+
+            <View style={styles.modalDivider} />
+
+            <Text style={styles.modalHint}>
+              Siap masak? Cek resep minggu ini di atas 👆
+            </Text>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.modalCloseBtn,
+                pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
+              ]}
+              onPress={() => setShowAllDoneModal(false)}
+            >
+              <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+              <Text style={styles.modalCloseBtnText}>Tutup</Text>
+            </Pressable>
+          </Animated.View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -633,5 +705,104 @@ const styles = StyleSheet.create({
   itemCheckBoxDone: {
     backgroundColor: "#10B981",
     borderColor: "#10B981",
+  },
+
+  // ─── All-Done Modal Styles ──────────────────────────────────
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 28,
+  },
+  modalCard: {
+    width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 32,
+    paddingHorizontal: 28,
+    paddingVertical: 36,
+    alignItems: "center",
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowRadius: 32,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 20,
+  },
+  modalBlobTL: {
+    position: "absolute",
+    top: -60,
+    left: -60,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: "#FFF3EB",
+    opacity: 0.8,
+  },
+  modalBlobBR: {
+    position: "absolute",
+    bottom: -50,
+    right: -50,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: "#E0F2E9",
+    opacity: 0.7,
+  },
+  modalIconWrap: {
+    marginBottom: 16,
+  },
+  modalEmoji: {
+    fontSize: 52,
+    textAlign: "center",
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: "#1F2937",
+    textAlign: "center",
+    letterSpacing: -0.3,
+    marginBottom: 10,
+  },
+  modalSubtitle: {
+    fontSize: 15,
+    color: "#4B5563",
+    textAlign: "center",
+    lineHeight: 22,
+    marginBottom: 20,
+  },
+  modalDivider: {
+    width: 48,
+    height: 3,
+    borderRadius: 99,
+    backgroundColor: "#FF7E00",
+    marginBottom: 16,
+    opacity: 0.5,
+  },
+  modalHint: {
+    fontSize: 13,
+    color: "#9CA3AF",
+    textAlign: "center",
+    marginBottom: 28,
+    lineHeight: 20,
+  },
+  modalCloseBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#FF7E00",
+    borderRadius: 16,
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    shadowColor: "#FF7E00",
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  modalCloseBtnText: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+    fontSize: 16,
   },
 });

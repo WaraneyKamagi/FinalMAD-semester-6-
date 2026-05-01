@@ -219,3 +219,45 @@ export const markNotificationRead = mutation({
     await ctx.db.patch(args.notificationId, { read: true });
   },
 });
+
+// ─── Reset Plan ───────────────────────────────────────────────────────────────
+
+/**
+ * resetPlan — Wipes all AI-generated data for a user and resets hasPromptedAI.
+ * Streak and badges are intentionally preserved.
+ */
+export const resetPlan = mutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    // 1. Delete ALL daily tasks for this user
+    const allTasks = await ctx.db
+      .query("dailyTasks")
+      .withIndex("by_user_date", (q) => q.eq("userId", args.userId))
+      .collect();
+    for (const task of allTasks) {
+      await ctx.db.delete(task._id);
+    }
+
+    // 2. Delete all grocery lists for this user
+    const allGroceries = await ctx.db
+      .query("groceryLists")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+    for (const list of allGroceries) {
+      await ctx.db.delete(list._id);
+    }
+
+    // 3. Delete all weekly recipes for this user
+    const allRecipes = await ctx.db
+      .query("weeklyRecipes")
+      .withIndex("by_user_week", (q) => q.eq("userId", args.userId))
+      .collect();
+    for (const recipe of allRecipes) {
+      await ctx.db.delete(recipe._id);
+    }
+
+    // 4. Reset the AI flag — streak & badges stay intact
+    await ctx.db.patch(args.userId, { hasPromptedAI: false });
+  },
+});
+

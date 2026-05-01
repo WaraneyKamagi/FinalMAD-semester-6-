@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { api } from "./_generated/api";
-import { action, mutation } from "./_generated/server";
+import { action, mutation, query } from "./_generated/server";
 
 function extractJsonPayload(raw: string): unknown {
   const trimmed = raw.trim().replace(/^\uFEFF/, "");
@@ -49,6 +49,52 @@ function extractJsonPayload(raw: string): unknown {
   throw new Error(
     `Gemini response was not valid JSON. Raw preview: ${trimmed.slice(0, 220)}`,
   );
+}
+
+function isOffTopicPrompt(prompt: string): boolean {
+  const normalized = prompt.toLowerCase();
+
+  // On-topic keywords: anything related to food, nutrition, or exercise
+  const onTopicKeywords = [
+    // --- Nutrition / Makanan ---
+    "makan", "makanan", "meal", "food", "diet", "nutrisi", "nutrition",
+    "kalori", "calorie", "protein", "karbohidrat", "carb", "lemak", "fat",
+    "vitamin", "mineral", "serat", "fiber", "sarapan", "breakfast",
+    "makan siang", "lunch", "makan malam", "dinner", "snack", "camilan",
+    "resep", "recipe", "bahan", "ingredient", "masak", "cook",
+    "berat badan", "weight", "gemuk", "kurus", "obesitas", "obese",
+    "turun berat", "naik berat", "lose weight", "gain weight",
+    "lose", "gain", "reduce", "kurangi", "tambah",
+    "grocery", "belanja", "sayur", "vegetable", "buah", "fruit",
+    "daging", "meat", "ikan", "fish", "telur", "egg", "susu", "milk",
+    "sehat", "healthy", "gula", "sugar", "garam", "salt",
+    "kg", "lb", "kalori", "kcal", "prep", "meal prep",
+    // --- Exercise / Olahraga ---
+    "olahraga", "exercise", "latihan", "workout", "training",
+    "lari", "run", "jogging", "renang", "swim", "bersepeda", "cycling",
+    "gym", "fitness", "push up", "pushup", "squat", "sit up", "situp",
+    "plank", "pull up", "pullup", "cardio", "aerobik", "aerobic",
+    "yoga", "pilates", "stretching", "peregangan", "angkat beban",
+    "weight lifting", "strength", "kekuatan", "otot", "muscle",
+    "stamina", "endurance", "kebugaran", "fit", "active", "aktif",
+    "hiit", "interval", "warm up", "pemanasan", "cool down",
+    "set", "rep", "reps", "menit", "minute", "jam", "hour",
+    // --- Health & Wellness general ---
+    "health plan", "rencana", "plan", "program", "jadwal", "schedule",
+    "target", "goal", "tujuan", "bmi", "imb", "tinggi", "height",
+    "energy", "energi", "sleep", "tidur", "morning", "pagi", "recovery",
+    "wellness", "wellbeing", "kesehatan", "body", "tubuh", "improve",
+    "boost", "increase", "tingkatkan", "week", "month", "minggu", "bulan",
+    "daily", "harian", "progress", "hasil", "quality", "kualitas",
+    "budget", "affordable", "murah", "mood", "appetite", "nafsu makan",
+  ];
+
+  const hasOnTopicKeyword = onTopicKeywords.some((kw) =>
+    normalized.includes(kw),
+  );
+
+  // If prompt has at least one on-topic keyword, it is acceptable
+  return !hasOnTopicKeyword;
 }
 
 function isUnsafePrompt(prompt: string): boolean {
@@ -253,6 +299,15 @@ export const generatePlan = action({
     prompt: v.string(),
   },
   handler: async (ctx, args) => {
+    // Guard 1: Reject prompts outside food/nutrition/exercise context
+    if (isOffTopicPrompt(args.prompt)) {
+      throw new Error(
+        "Maaf, NutriUP hanya dapat membantu dengan topik makanan, nutrisi, dan olahraga. " +
+        "Silakan masukkan prompt yang berkaitan dengan diet, rencana makan, atau program latihan fisik.",
+      );
+    }
+
+    // Guard 2: Reject unsafe/extreme health practices
     if (isUnsafePrompt(args.prompt)) {
       throw new Error(
         "Your request is too extreme. Please use safe nutrition and weight-loss targets.",
@@ -348,6 +403,20 @@ INSTRUCTIONS:
       dailyTasks: normalizedDailyTasks,
       groceryList: normalizedGroceryList,
     });
+
+    // Log prompt history — wrapped in try-catch so a logging failure
+    // never blocks or crashes the plan generation flow.
+    try {
+      await ctx.runMutation(api.gemini.savePromptHistory, {
+        userId: args.userId,
+        userPrompt: args.prompt,
+        systemPrompt,
+        createdAt: Date.now(),
+        planVersion: "v1.0",
+      });
+    } catch (logErr) {
+      console.warn("[promptHistory] Failed to log prompt:", logErr);
+    }
   },
 });
 
@@ -471,6 +540,48 @@ Return JSON only and keep it concise.`;
     });
   },
 });
+
+// ─── Prompt History ─────────────────────────────────────────────────────────
+
+/**
+ * savePromptHistory — Append-only log of every AI generation.
+ * Used as a reference for past prompts; never mutates other tables.
+ */
+export const savePromptHistory = mutation({
+  args: {
+    userId: v.id("users"),
+    userPrompt: v.string(),
+    systemPrompt: v.string(),
+    createdAt: v.number(),
+    planVersion: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("promptHistory", {
+      userId: args.userId,
+      userPrompt: args.userPrompt,
+      systemPrompt: args.systemPrompt,
+      createdAt: args.createdAt,
+      planVersion: args.planVersion,
+    });
+  },
+});
+
+/**
+ * fetchPromptHistoryQuery — Returns last 50 prompt history rows for a user,
+ * newest first. Can be used by future UI without touching any hardcoded strings.
+ */
+export const fetchPromptHistoryQuery = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("promptHistory")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .order("desc")
+      .take(50);
+  },
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const savePlan = mutation({
   args: {

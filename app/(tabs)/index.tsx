@@ -3,6 +3,7 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import Animated, { FadeInDown, FadeIn, Layout, BounceIn, SlideInRight } from "react-native-reanimated";
+import OffTopicModal from "../../components/OffTopicModal";
 import {
     ActivityIndicator,
     KeyboardAvoidingView,
@@ -48,6 +49,7 @@ export default function DashboardScreen() {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [swappingTaskId, setSwappingTaskId] = useState<string | null>(null);
+  const [offTopicVisible, setOffTopicVisible] = useState(false);
   const [goalPreview, setGoalPreview] = useState<{
     status: "idle" | "pending" | "safe" | "unsafe";
     prompt: string;
@@ -89,6 +91,19 @@ export default function DashboardScreen() {
     } catch (e) {
       console.error(e);
       const message = e instanceof Error ? e.message : "Unknown error";
+
+      // Off-topic → show the premium modal, reset card to idle
+      if (
+        message.includes("hanya dapat membantu") ||
+        message.toLowerCase().includes("off-topic") ||
+        message.toLowerCase().includes("topik")
+      ) {
+        setGoalPreview({ status: "idle", prompt: "" });
+        setOffTopicVisible(true);
+        return;
+      }
+
+      // Too extreme / unsafe goal
       if (message.toLowerCase().includes("too extreme")) {
         setGoalPreview({
           status: "unsafe",
@@ -96,14 +111,15 @@ export default function DashboardScreen() {
           message:
             "This goal is too aggressive for a safe plan. The app will recommend a more gradual target and a recovery-friendly layout instead.",
         });
-      } else {
-        setGoalPreview({
-          status: "unsafe",
-          prompt: prompt.trim(),
-          message,
-        });
+        return;
       }
-      alert(`Failed to contact AI: ${message}`);
+
+      // Generic API / network errors
+      setGoalPreview({
+        status: "unsafe",
+        prompt: prompt.trim(),
+        message: `Something went wrong: ${message}`,
+      });
     } finally {
       setLoading(false);
     }
@@ -157,6 +173,12 @@ export default function DashboardScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      {/* ── Off-topic Error Modal ── */}
+      <OffTopicModal
+        visible={offTopicVisible}
+        onClose={() => setOffTopicVisible(false)}
+      />
+
       <View style={styles.bgGlowTop} />
       <View style={styles.bgGlowBottom} />
       <KeyboardAvoidingView
@@ -420,11 +442,10 @@ export default function DashboardScreen() {
                             styles.taskTitle,
                             task.completed && styles.taskTextDone,
                           ]}
-                          numberOfLines={1}
                         >
                           {task.title}
                         </Text>
-                        <Text style={styles.taskSub} numberOfLines={2}>
+                        <Text style={styles.taskSub}>
                           {task.time} • {task.description}
                         </Text>
                         {/* GAP 5: Calorie/duration annotation badge (Journal Sec 3.5) */}
@@ -1040,7 +1061,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 16,
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 14,
     shadowColor: "#000",
     shadowOpacity: 0.04,
@@ -1060,6 +1081,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
+    alignSelf: "flex-start",
+    flexShrink: 0,
   },
   workoutBg: {
     backgroundColor: "#FFEDD5",
@@ -1069,16 +1092,22 @@ const styles = StyleSheet.create({
   },
   taskMain: {
     flex: 1,
+    flexShrink: 1,
+    gap: 2,
   },
   taskTitle: {
     color: "#1F2937",
     fontWeight: "800",
     fontSize: 16,
+    lineHeight: 22,
+    flexWrap: "wrap",
   },
   taskSub: {
     color: "#6B7280",
     marginTop: 4,
     fontSize: 13,
+    lineHeight: 20,
+    flexWrap: "wrap",
   },
   // GAP 5: Calorie/duration annotation badge (Journal Sec 3.5)
   annotationBadge: {
@@ -1110,6 +1139,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 2,
     borderColor: "#E5E7EB",
+    alignSelf: "flex-start",
   },
   swapBtn: {
     width: 36,
@@ -1118,6 +1148,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F3F4F6",
     alignItems: "center",
     justifyContent: "center",
+    alignSelf: "flex-start",
   },
   checkCircleDone: {
     backgroundColor: "#10B981",

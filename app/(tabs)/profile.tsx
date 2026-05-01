@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -22,6 +23,7 @@ export default function ProfileScreen() {
   const user = useQuery(api.users.getUser, userId ? { userId } : "skip");
   const updateWeightMutation = useMutation(api.users.updateWeight);
   const updateReminderLeadMins = useMutation(api.users.updateReminderLeadMins);
+  const resetPlanMutation = useMutation(api.dashboard.resetPlan);
   const generatePlan = useAction(api.gemini.generatePlan);
   const streak = useQuery(
     api.dashboard.getStreakStats,
@@ -31,6 +33,7 @@ export default function ProfileScreen() {
   const [newWeight, setNewWeight] = useState("");
   const [reminderLead, setReminderLead] = useState("20");
   const [loading, setLoading] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const handleEvaluation = async () => {
     if (!newWeight || !user) return;
@@ -75,6 +78,32 @@ export default function ProfileScreen() {
       const message = e instanceof Error ? e.message : "Unknown error";
       alert(`Failed to update reminder: ${message}`);
     }
+  };
+
+  const handleResetPlan = () => {
+    if (!user) return;
+    Alert.alert(
+      "Reset Semua Plan?",
+      "Ini akan menghapus seluruh Action Plan, Grocery List, dan Resep minggu ini. Streak dan badge kamu tetap aman.",
+      [
+        { text: "Batal", style: "cancel" },
+        {
+          text: "Ya, Reset",
+          style: "destructive",
+          onPress: async () => {
+            setResetting(true);
+            try {
+              await resetPlanMutation({ userId: user._id });
+            } catch (e) {
+              const message = e instanceof Error ? e.message : "Unknown error";
+              Alert.alert("Gagal", `Reset gagal: ${message}`);
+            } finally {
+              setResetting(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   if (!userId) {
@@ -237,6 +266,35 @@ export default function ProfileScreen() {
           <Text style={styles.tipText}>
             • Keep sleep consistent to stabilize appetite.
           </Text>
+        </Animated.View>
+
+        {/* ── Reset Plan Card ── */}
+        <Animated.View style={styles.resetCard} entering={FadeInDown.delay(600)}>
+          <View style={styles.cardHead}>
+            <Ionicons name="refresh-circle-outline" size={20} color="#DC2626" />
+            <Text style={[styles.cardTitle, { color: "#DC2626" }]}>5) Reset Plan</Text>
+          </View>
+          <Text style={styles.cardDesc}>
+            Hapus semua Action Plan, Grocery List, dan Resep yang ada. Gunakan ini untuk memulai dari awal dengan prompt baru.{"\n"}Streak dan badge kamu tidak akan hilang.
+          </Text>
+          <Pressable
+            onPress={handleResetPlan}
+            disabled={resetting}
+            style={({ pressed }) => [
+              styles.resetBtn,
+              resetting && styles.actionBtnDisabled,
+              pressed && { transform: [{ scale: 0.95 }] },
+            ]}
+          >
+            {resetting ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <Ionicons name="trash-outline" size={16} color="#FFFFFF" />
+                <Text style={styles.actionBtnText}>Reset Semua Plan</Text>
+              </>
+            )}
+          </Pressable>
         </Animated.View>
       </ScrollView>
     </SafeAreaView>
@@ -446,5 +504,33 @@ const styles = StyleSheet.create({
     color: "#4B5563",
     lineHeight: 22,
     fontSize: 14,
+  },
+  resetCard: {
+    backgroundColor: "#FFF5F5",
+    borderRadius: 20,
+    padding: 20,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: "#FEE2E2",
+    shadowColor: "#DC2626",
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
+  },
+  resetBtn: {
+    backgroundColor: "#DC2626",
+    borderRadius: 16,
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    marginTop: 4,
+    shadowColor: "#DC2626",
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
 });
