@@ -89,7 +89,7 @@ npx expo start
 
 ---
 
-## 👤 Pembuat
+### 👤 Pembuat
 
 **Waraney Kamagi**
 **David Kapal**
