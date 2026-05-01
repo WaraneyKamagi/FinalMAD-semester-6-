@@ -91,6 +91,6 @@ npx expo start
 
 ### 👤 Pembuat
 
-**Waraney Kamagi, Sinre David Kapal, & Ivan Kaseger**
+**Waraney Kamagi, David Kapal, & Ivan Kaseger**
 Final Project — Mata Kuliah Mobile App Development
 Semester 6
